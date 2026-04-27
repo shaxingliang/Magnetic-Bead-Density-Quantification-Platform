@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <title>磁珠密度分析系统 - 沙兴良开发版</title>
+    
+    <!-- ========== 1. 登录界面专属样式 (完全限定，避免污染主程序) ========== -->
+    <style>
+        /* 全屏登录层 - 最高层级，完全遮挡主程序 */
+        .fullscreen-login-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10000;
+            background: radial-gradient(ellipse at 30% 40%, #0f172a, #03060c);
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', sans-serif;
+            overflow: hidden;
+            /* 确保内部元素不受外部样式干扰 */
+            isolation: isolate;
+        }
+
+        /* 科技动态背景 - 磁珠粒子场 (限定在登录层内) */
+        .login-magnetic-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 1;
+        }
+
+        .login-field-line {
+            position: absolute;
+            border: 1px solid rgba(0, 180, 255, 0.25);
+            border-radius: 50%;
+            width: 80vmax;
+            height: 80vmax;
+            left: -20vmax;
+            top: -20vmax;
+            animation: loginRotateLine 30s infinite linear;
+        }
+        .login-field-line:nth-child(2) {
+            width: 110vmax;
+            height: 110vmax;
+            left: -30vmax;
+            top: -30vmax;
+            border-color: rgba(150, 80, 220, 0.2);
+            animation-duration: 45s;
+            animation-direction: reverse;
+        }
+        @keyframes loginRotateLine {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .login-bead-particle {
+            position: absolute;
+            background: radial-gradient(circle, #3b82f6, #1e3a8a);
+            border-radius: 50%;
+            box-shadow: 0 0 12px rgba(59,130,246,0.6);
+            animation: loginBeadFloat 12s infinite alternate ease-in-out;
+        }
+        @keyframes loginBeadFloat {
+            0% { transform: translateY(0px) scale(1); opacity: 0.4; }
+            100% { transform: translateY(-35px) scale(1.2); opacity: 0.9; }
+        }
+
+        .login-scan-beam {
+            position: absolute;
+            width: 120%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00e0ff, #7c3aed, #f59e0b, #00e0ff, transparent);
+            top: 35%;
+            left: -10%;
+            filter: blur(2px);
+            animation: loginScanMove 5.5s infinite ease-in-out;
+            opacity: 0.65;
+        }
+        @keyframes loginScanMove {
+            0% { top: 20%; opacity: 0; transform: translateX(-10%); }
+            40% { opacity: 0.8; }
+            80% { top: 70%; opacity: 0.6; }
+            100% { top: 20%; opacity: 0; transform: translateX(10%); }
+        }
+
+        .login-glow-orb {
+            position: absolute;
+            width: 60vmax;
+            height: 60vmax;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.3;
+            animation: loginOrbPulse 18s infinite alternate;
+        }
+        .login-glow-blue { background: radial-gradient(circle, #3b82f6, transparent); bottom: -30%; right: -20%; }
+        .login-glow-purple { background: radial-gradient(circle, #a855f7, transparent); top: -30%; left: -20%; animation-duration: 24s; }
+        @keyframes loginOrbPulse {
+            0% { opacity: 0.2; transform: scale(0.9); }
+            100% { opacity: 0.5; transform: scale(1.1); }
+        }
+
+        /* 启动界面 (科技感英雄区) */
+        .login-splash-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at 40% 40%, #101826, #020408);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.9s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+            opacity: 1;
+            z-index: 20;
+            pointer-events: auto;
+        }
+        .login-splash-screen.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .login-splash-hero {
+            position: relative;
+            z-index: 20;
+            text-align: center;
+            animation: loginSubtleRise 3.2s infinite alternate;
+        }
+        @keyframes loginSubtleRise {
+            0% { transform: translateY(0px); }
+            100% { transform: translateY(-6px); }
+        }
+
+        .login-splash-icon svg {
+            filter: drop-shadow(0 0 20px #3b82f6);
+            margin-bottom: 20px;
+        }
+
+        .login-splash-title {
+            font-size: clamp(42px, 9vw, 72px);
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            background: linear-gradient(135deg, #FFF, #9ac8ff, #5b8cff);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            margin-bottom: 12px;
+        }
+
+        .login-splash-sub {
+            font-size: clamp(22px, 5vw, 36px);
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            background: linear-gradient(120deg, #c2e0ff, #6ba0ff);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            margin-bottom: 28px;
+        }
+
+        .login-splash-magnetic {
+            font-size: clamp(20px, 4.5vw, 32px);
+            font-weight: 600;
+            letter-spacing: 2px;
+            background: linear-gradient(125deg, #ffffff, #b0d4ff, #7c3aed);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+        .login-splash-underline {
+            width: 60%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #3b82f6, #a855f7, #00e6c3, transparent);
+            margin: 16px auto 0;
+            border-radius: 4px;
+            animation: loginLineBreath 2.8s infinite;
+        }
+        @keyframes loginLineBreath {
+            0% { width: 30%; opacity: 0.3; }
+            50% { width: 80%; opacity: 1; }
+            100% { width: 30%; opacity: 0.3; }
+        }
+
+        .login-splash-dots {
+            display: flex;
+            gap: 14px;
+            justify-content: center;
+            margin: 40px 0 20px;
+        }
+        .login-splash-dots span {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #3b82f6;
+            animation: loginDotPulse 2s infinite alternate;
+        }
+        .login-splash-dots span:nth-child(2) { background: #a855f7; animation-delay: 0.3s; }
+        .login-splash-dots span:nth-child(3) { background: #00e6c3; animation-delay: 0.6s; }
+        @keyframes loginDotPulse {
+            0% { transform: scale(0.7); opacity: 0.4; }
+            100% { transform: scale(1.5); opacity: 1; }
+        }
+
+        .login-splash-footer {
+            position: absolute;
+            bottom: 6%;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 11px;
+            color: #8aa3c9;
+            letter-spacing: 1px;
+            z-index: 20;
+            font-weight: 400;
+        }
+
+        /* 登录卡片容器 */
+        .login-card-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 25;
+            opacity: 0;
+            transition: opacity 1s ease;
+            pointer-events: none;
+        }
+        .login-card-container.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .login-card {
+            background: rgba(15, 25, 45, 0.65);
+            backdrop-filter: blur(12px);
+            border-radius: 40px;
+            padding: 42px 36px;
+            width: 100%;
+            max-width: 440px;
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            box-shadow: 0 25px 45px rgba(0,0,0,0.4), 0 0 0 1px rgba(0, 200, 255, 0.1);
+            transition: transform 0.3s;
+        }
+
+        .login-logo {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        .login-logo svg {
+            filter: drop-shadow(0 0 12px #3b82f6);
+        }
+        .login-title {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #fff, #9ac8ff);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            margin: 16px 0 8px;
+        }
+        .login-sub {
+            font-size: 14px;
+            color: #9bb5e0;
+            letter-spacing: 1px;
+        }
+
+        .input-group {
+            margin-bottom: 24px;
+        }
+        .input-group label {
+            display: block;
+            color: #cbd5f0;
+            font-size: 13px;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+        .input-group input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid #2d4570;
+            padding: 14px 18px;
+            border-radius: 28px;
+            font-size: 15px;
+            color: #eef4ff;
+            transition: all 0.2s;
+            outline: none;
+        }
+        .input-group input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 12px rgba(59,130,246,0.3);
+        }
+
+        .login-btn {
+            background: linear-gradient(95deg, #2563eb, #7c3aed);
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 40px;
+            font-weight: 700;
+            font-size: 16px;
+            color: white;
+            cursor: pointer;
+            transition: 0.2s;
+            margin-top: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(59,130,246,0.4);
+        }
+
+        .login-footer {
+            text-align: center;
+            margin-top: 32px;
+            font-size: 11px;
+            color: #7b94b5;
+            border-top: 1px solid rgba(59,130,246,0.2);
+            padding-top: 20px;
+        }
+        .login-footer .dev-info {
+            font-size: 11px;
+            letter-spacing: 1px;
+            color: #b0c9ff;
+            margin-bottom: 6px;
+        }
+        .research-note {
+            font-size: 10px;
+            color: #8aa9cf;
+            opacity: 0.8;
+        }
+
+        @media (max-width: 500px) {
+            .login-card { padding: 30px 22px; }
+            .login-title { font-size: 24px; }
+        }
+    </style>
+
+    <!-- ========== 2. 主程序样式 (原封不动) ========== -->
+    <style>
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f8f9fa; --card: #ffffff; --text: #333; }
+        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; margin: 0; background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
+        
+        /* 侧边设置栏 */
+        .sidebar { width: 320px; background: var(--primary); color: white; padding: 25px; box-shadow: 2px 0 10px rgba(0,0,0,0.1); overflow-y: auto; flex-shrink: 0; }
+        .sidebar h2 { font-size: 1.2rem; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 15px; margin-top: 0; }
+        .group { margin-bottom: 25px; }
+        .group-title { font-size: 0.85rem; text-transform: uppercase; color: rgba(255,255,255,0.6); margin-bottom: 12px; display: block; }
+        .control { margin-bottom: 15px; }
+        .control label { display: block; font-size: 0.9rem; margin-bottom: 6px; }
+        .control input { width: 100%; padding: 8px; border-radius: 4px; border: none; background: rgba(255,255,255,0.1); color: white; box-sizing: border-box; }
+        .control input:focus { outline: 2px solid var(--accent); }
+        .btn-main { width: 100%; padding: 12px; background: var(--accent); border: none; color: white; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-main:hover { background: #2980b9; transform: translateY(-1px); }
+
+        /* 主展示区 */
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .header { background: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; flex-shrink: 0; }
+        .header h1 { font-size: 1.1rem; margin: 0; color: var(--primary); }
+        .header-left { display: flex; align-items: baseline; gap: 15px; }
+        
+        /* 开发者徽章 */
+        .developer-badge { font-size: 0.85rem; font-weight: bold; color: #2980b9; background: #ebf5fb; padding: 6px 12px; border-radius: 20px; border: 1px solid #d6eaf8; display: flex; align-items: center; gap: 5px; }
+
+        .dashboard { padding: 15px 30px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; flex-shrink: 0; }
+        .stat-card { background: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .stat-val { display: block; font-size: 1.6rem; font-weight: bold; color: var(--accent); }
+        .stat-label { font-size: 0.8rem; color: #7f8c8d; margin-bottom: 5px; display: block; }
+
+        .suggestion-box { margin: 0 30px 10px 30px; padding: 10px 20px; border-radius: 8px; font-size: 0.9rem; display: none; line-height: 1.5; flex-shrink: 0;}
+        .suggest-low { background: #fdf3f2; border-left: 4px solid #e74c3c; color: #c0392b; }
+        .suggest-med { background: #eafaf1; border-left: 4px solid #2ecc71; color: #27ae60; }
+        .suggest-high { background: #fef9e7; border-left: 4px solid #f1c40f; color: #d35400; }
+        .range-badge { display: inline-block; background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; font-weight: bold; margin-left: 10px; font-size: 0.8rem;}
+
+        .workspace { flex: 1; padding: 0 30px 15px; display: flex; flex-direction: column; overflow: hidden; }
+        
+        /* 工具栏 */
+        .toolbar { background: white; padding: 10px 15px; border-radius: 8px 8px 0 0; border: 1px solid #ddd; border-bottom: none; display: flex; align-items: center; gap: 15px; font-size: 0.9rem; }
+        .tool-btn { background: #f1f2f6; border: 1px solid #dcdde1; padding: 5px 12px; border-radius: 4px; cursor: pointer; transition: 0.2s; color: #2f3640; }
+        .tool-btn:hover { background: #dfe4ea; }
+        .mag-toggle { display: flex; align-items: center; cursor: pointer; color: #e15f41; font-weight: bold; background: #fff3e0; padding: 5px 10px; border-radius: 4px; border: 1px solid #ffcc80;}
+        
+        /* 画布交互区 */
+        .canvas-area { flex: 1; background: #ebedef; border-radius: 0 0 8px 8px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd; cursor: grab; }
+        .canvas-area:active { cursor: grabbing; }
+        
+        #previewCanvas { transform-origin: center; transition: transform 0.05s ease-out; max-width: 100%; max-height: 100%; object-fit: contain; }
+        
+        /* 放大镜样式 */
+        .magnifier {
+            position: absolute; width: 160px; height: 160px; border: 3px solid #3498db;
+            border-radius: 50%; overflow: hidden; display: none; pointer-events: none;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.4); z-index: 100; background: white;
+        }
+        #magCanvas { display: block; }
+        
+        .legend { padding: 10px 20px; background: #fff; border-radius: 8px; margin-top: 10px; font-size: 0.85rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; gap: 20px; justify-content: center; flex-shrink: 0;}
+        .legend-item { display: flex; align-items: center; }
+        .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
+
+        /* 底部免责声明 */
+        .footer { text-align: center; padding: 10px 30px; font-size: 0.85rem; color: #7f8c8d; background: #fff; border-top: 1px solid #ddd; flex-shrink: 0; letter-spacing: 1px; }
+    </style>
+</head>
+<body>
+
+<!-- ========== 登录全屏层 (启动动画+登录卡片) ========== -->
+<div class="fullscreen-login-layer" id="fullscreenLoginLayer">
+    <div class="login-magnetic-bg">
+        <div class="login-field-line"></div>
+        <div class="login-field-line"></div>
+        <div class="login-scan-beam"></div>
+        <div class="login-glow-orb login-glow-blue"></div>
+        <div class="login-glow-orb login-glow-purple"></div>
+        <div class="login-bead-particle" style="width: 8px; height: 8px; top: 18%; left: 15%; animation-duration: 8s;"></div>
+        <div class="login-bead-particle" style="width: 12px; height: 12px; top: 60%; left: 80%; animation-duration: 10s; animation-delay: 1s; background: radial-gradient(circle, #a855f7, #4c1d95);"></div>
+        <div class="login-bead-particle" style="width: 5px; height: 5px; top: 45%; left: 35%; animation-duration: 7s; animation-delay: 0.5s;"></div>
+        <div class="login-bead-particle" style="width: 10px; height: 10px; top: 75%; left: 25%; animation-duration: 11s; background: radial-gradient(circle, #00e6c3, #0f766e);"></div>
+        <div class="login-bead-particle" style="width: 6px; height: 6px; top: 30%; left: 70%; animation-duration: 9s;"></div>
+        <div class="login-bead-particle" style="width: 14px; height: 14px; top: 85%; left: 55%; animation-duration: 13s; background: radial-gradient(circle, #3b82f6, #1e3a8a);"></div>
+    </div>
+
+    <!-- 启动 splash 界面 -->
+    <div class="login-splash-screen" id="loginSplashScreen">
+        <div class="login-splash-hero">
+            <div class="login-splash-icon">
+                <svg width="70" height="70" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="24" cy="24" r="8" fill="#00e6c3" fill-opacity="0.3" stroke="#3b82f6" stroke-width="1.5">
+                        <animate attributeName="r" values="7;10;7" dur="2.5s" repeatCount="indefinite" />
+                    </circle>
+                    <circle cx="24" cy="24" r="16" stroke="url(#gradMag)" stroke-width="1.2" stroke-dasharray="4 4">
+                        <animate attributeName="stroke-dashoffset" from="0" to="-32" dur="3s" repeatCount="indefinite" />
+                    </circle>
+                    <path d="M12 12 L36 36 M12 36 L36 12" stroke="#a855f7" stroke-width="1" opacity="0.6" stroke-dasharray="3 3">
+                        <animate attributeName="opacity" values="0.3;0.9;0.3" dur="2s" repeatCount="indefinite" />
+                    </path>
+                    <defs>
+                        <linearGradient id="gradMag" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#3b82f6" />
+                            <stop offset="100%" stop-color="#c084fc" />
+                        </linearGradient>
+                    </defs>
+                    <circle cx="24" cy="24" r="2.5" fill="#ffffff" filter="url(#glow)">
+                        <animate attributeName="r" values="2;3;2" dur="1.8s" repeatCount="indefinite" />
+                    </circle>
+                </svg>
+            </div>
+            <div class="login-splash-title">INFINITE</div>
+            <div class="login-splash-sub">POSSIBILITIES</div>
+            <div class="login-splash-dots">
+                <span></span><span></span><span></span>
+            </div>
+            <div class="login-splash-magnetic">MAGNETIC BEAD DENSITY</div>
+            <div class="login-splash-underline"></div>
+        </div>
+        <div class="login-splash-footer">
+            磁珠数量密度分析平台  |  开发者：沙兴良
+        </div>
+    </div>
+
+    <!-- 登录卡片区域 (初始隐藏，启动动画结束显示) -->
+    <div class="login-card-container" id="loginCardContainer">
+        <div class="login-card">
+            <div class="login-logo">
+                <svg width="52" height="52" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="24" cy="24" r="10" fill="#00e6c320" stroke="#3b82f6" stroke-width="1.4"/>
+                    <circle cx="24" cy="24" r="4" fill="#3b82f6" stroke="#c084fc" stroke-width="1"/>
+                    <path d="M14 14 L34 34 M14 34 L34 14" stroke="#a855f7" stroke-width="1.2" opacity="0.7"/>
+                </svg>
+                <div class="login-title">磁珠数量密度分析平台</div>
+                <div class="login-sub">Magnetic Bead Quantification · 登录</div>
+            </div>
+            <form id="loginFormLayer" action="#">
+                <div class="input-group">
+                    <label>🔒 访问密码</label>
+                    <input type="password" placeholder="请输入密码" id="loginPassword" autocomplete="off">
+                </div>
+                <button type="submit" class="login-btn">进入分析平台 →</button>
+            </form>
+            <div class="login-footer">
+                <div class="dev-info">磁珠数量密度分析平台  |  开发者：沙兴良</div>
+                <div class="research-note">本平台仅供科研使用，具体结果请结合专业判断</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ========== 3. 主程序原有内容 (完全未改动) ========== -->
+<div class="sidebar">
+    <h2>分析控制面板</h2>
+    
+    <div class="group">
+        <span class="group-title">1. 文件录入 (支持实时预览)</span>
+        <div class="control">
+            <input type="file" id="fileInput" accept="image/png, image/jpeg" multiple style="background:none; padding:0;">
+        </div>
+    </div>
+
+    <div class="group">
+        <span class="group-title">2. 预处理参数</span>
+        <div class="control">
+            <label>灰度阈值 (Threshold)</label>
+            <input type="number" id="threshold" value="100">
+        </div>
+        <div class="control">
+            <label style="display:flex; align-items:center;">
+                <input type="checkbox" id="excludeEdge" style="width:auto; margin-right:10px;"> 剔除触边粒子
+            </label>
+        </div>
+    </div>
+
+    <div class="group">
+        <span class="group-title">3. 尺寸筛选条件</span>
+        <div class="control">
+            <label>最小截面积 (Min Area)</label>
+            <input type="number" id="minArea" value="1">
+        </div>
+        <div class="control">
+            <label>最大截面积 (Max Area)</label>
+            <input type="number" id="maxArea" value="20">
+        </div>
+        <div class="control">
+            <label>单颗标称面积 (Avg Area)</label>
+            <input type="number" id="avgArea" value="10" title="当粒子面积超过最大值时，以此数值进行集群分割估算">
+        </div>
+    </div>
+
+    <button class="btn-main" onclick="processImages()">执行自动化分析</button>
+    <button class="btn-main" id="exportBtn" onclick="downloadCSV()" style="margin-top:10px; background:#27ae60; display:none;">导出结果报告 (CSV)</button>
+</div>
+
+<div class="main-content">
+    <div class="header">
+        <div class="header-left">
+            <h1>磁珠面积密度评估系统</h1>
+            <span id="userInfo" style="font-size:0.8rem; color:#666;">系统状态：等待录入图片...</span>
+        </div>
+        <div class="developer-badge">
+            👨‍💻 开发者：沙兴良
+        </div>
+    </div>
+
+    <div class="dashboard">
+        <div class="stat-card">
+            <span class="stat-label">磁珠估算总数 (Count)</span>
+            <span class="stat-val" id="totalCount">-</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-label">面积分数 (Area Fraction)</span>
+            <span class="stat-val" id="areaFraction">-</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-label">评估区间 (Density Level)</span>
+            <span class="stat-val" id="densityLevel" style="font-size: 1.4rem; padding-top: 5px;">-</span>
+        </div>
+    </div>
+
+    <div id="suggestionBox" class="suggestion-box">
+        <strong>系统智能建议：</strong> <span id="suggestionText"></span>
+        <span id="rangeBadge" class="range-badge"></span>
+    </div>
+
+    <div class="workspace">
+        <div class="toolbar">
+            <label class="mag-toggle">
+                <input type="checkbox" id="toggleMagnifier" style="margin-right:8px;"> 🔍 开启局部放大镜
+            </label>
+            <button class="tool-btn" onclick="zoomCanvas(0.2)">➕ 放大视野</button>
+            <button class="tool-btn" onclick="zoomCanvas(-0.2)">➖ 缩小视野</button>
+            <button class="tool-btn" onclick="resetView()">🔄 还原初始视图</button>
+            <span style="color:#7f8c8d; font-size: 0.8rem; margin-left: auto;">💡 提示：在图片上直接滚动鼠标滚轮可缩放，按住左键可拖拽。</span>
+        </div>
+
+        <div class="canvas-area" id="canvasContainer">
+            <span id="placeholderText" style="color:#95a5a6; font-size:1.1rem; position: absolute;">上传图片后将在此实时预览</span>
+            <canvas id="previewCanvas" style="display:none;"></canvas>
+            
+            <div id="magnifier" class="magnifier">
+                <canvas id="magCanvas" width="160" height="160"></canvas>
+            </div>
+        </div>
+        
+        <div class="legend">
+            <div class="legend-item"><span class="dot" style="background:#ff3232;"></span> 红色：标准独立单体 (1-20)</div>
+            <div class="legend-item"><span class="dot" style="background:#0064ff;"></span> 蓝色：集群估算粒子 (>20)</div>
+            <div class="legend-item"><span class="dot" style="background:#2ecc71;"></span> 绿色：触边剔除</div>
+            <div class="legend-item"><span class="dot" style="background:#a9a9a9;"></span> 灰色：微小噪点 (<1)</div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        本平台仅供科研使用，具体结果请结合专业判断
+    </div>
+</div>
+
+<!-- 主程序原有脚本 (完全保留) -->
+<script>
+    let resultsData = [];
+    const LOW_THRESHOLD = 2.0;   
+    const HIGH_THRESHOLD = 8.0;  
+
+    // ===== 图像交互控制引擎 =====
+    let currentScale = 1;
+    let translateX = 0;
+    let translateY = 0;
+    let isDragging = false;
+    let startX, startY;
+
+    const container = document.getElementById('canvasContainer');
+    const canvas = document.getElementById('previewCanvas');
+    const magDiv = document.getElementById('magnifier');
+    const magCanvas = document.getElementById('magCanvas');
+    const magCtx = magCanvas.getContext('2d', { willReadFrequently: true });
+
+    function updateTransform() {
+        canvas.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`;
+    }
+
+    function resetView() {
+        currentScale = 1; translateX = 0; translateY = 0;
+        updateTransform();
+    }
+
+    function zoomCanvas(delta) {
+        currentScale = Math.max(0.1, Math.min(currentScale + delta, 15));
+        updateTransform();
+    }
+
+    container.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.15 : 0.15;
+        zoomCanvas(delta);
+    });
+
+    container.addEventListener('mousedown', e => {
+        if (e.target.id === 'toggleMagnifier') return;
+        isDragging = true;
+        startX = e.clientX - translateX;
+        startY = e.clientY - translateY;
+    });
+
+    window.addEventListener('mouseup', () => { isDragging = false; });
+
+    container.addEventListener('mousemove', e => {
+        if (isDragging) {
+            translateX = e.clientX - startX;
+            translateY = e.clientY - startY;
+            updateTransform();
+            magDiv.style.display = 'none'; 
+            return;
+        }
+
+        const isMagOn = document.getElementById('toggleMagnifier').checked;
+        if (isMagOn && canvas.style.display !== 'none') {
+            magDiv.style.display = 'block';
+            
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+
+            const contRect = container.getBoundingClientRect();
+            magDiv.style.left = (e.clientX - contRect.left + 15) + 'px';
+            magDiv.style.top = (e.clientY - contRect.top + 15) + 'px';
+
+            const zoomLevel = 3;
+            const mw = magCanvas.width, mh = magCanvas.height;
+            const sWidth = mw / zoomLevel * scaleX;
+            const sHeight = mh / zoomLevel * scaleY;
+            
+            magCtx.clearRect(0, 0, mw, mh);
+            magCtx.drawImage(canvas, 
+                x - sWidth/2, y - sHeight/2, sWidth, sHeight, 
+                0, 0, mw, mh
+            );
+
+            magCtx.strokeStyle = 'rgba(52, 152, 219, 0.8)';
+            magCtx.lineWidth = 1.5;
+            magCtx.beginPath();
+            magCtx.moveTo(mw/2, 0); magCtx.lineTo(mw/2, mh);
+            magCtx.moveTo(0, mh/2); magCtx.lineTo(mw, mh/2);
+            magCtx.stroke();
+        } else {
+            magDiv.style.display = 'none';
+        }
+    });
+
+    container.addEventListener('mouseleave', () => magDiv.style.display = 'none');
+
+    // ===== 核心分析业务逻辑 =====
+    document.getElementById('fileInput').addEventListener('change', async function(e) {
+        if(this.files.length > 0) {
+            const img = await loadImage(this.files[0]);
+            canvas.width = img.width;
+            canvas.height = img.height;
+            canvas.getContext('2d').drawImage(img, 0, 0);
+            document.getElementById('placeholderText').style.display = 'none';
+            canvas.style.display = 'block';
+            document.getElementById('userInfo').innerText = `已加载: ${this.files[0].name}，准备分析`;
+            resetView(); 
+        }
+    });
+
+    async function processImages() {
+        const fileInput = document.getElementById('fileInput');
+        if (fileInput.files.length === 0) return alert("请先选择图像文件！");
+        
+        const files = fileInput.files;
+        resultsData = [];
+        document.getElementById('userInfo').innerText = `正在高速分析中...`;
+
+        for (let i = 0; i < files.length; i++) {
+            const img = await loadImage(files[i]);
+            const analysis = analyzeBeads(img, i === files.length - 1);
+            resultsData.push({ name: files[i].name, ...analysis });
+        }
+        
+        updateDashboard(resultsData[resultsData.length - 1]);
+        document.getElementById('exportBtn').style.display = 'block';
+        document.getElementById('userInfo').innerText = `处理完成：已生成 ${files.length} 张图片的分析报告`;
+    }
+
+    function loadImage(file) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.src = URL.createObjectURL(file);
+        });
+    }
+
+    function analyzeBeads(img, updateCanvas) {
+        const width = img.width, height = img.height;
+        if (updateCanvas) { canvas.width = width; canvas.height = height; }
+        
+        const off = document.createElement('canvas');
+        off.width = width; off.height = height;
+        const ctx = off.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(img, 0, 0);
+        const data = ctx.getImageData(0, 0, width, height).data;
+
+        const binary = new Uint8Array(width * height);
+        const threshold = parseInt(document.getElementById('threshold').value);
+
+        for (let i = 0; i < data.length; i += 4) {
+            if (255 - data[i + 1] >= threshold) binary[i / 4] = 1;
+        }
+
+        const q = [];
+        for (let x = 0; x < width; x++) { if (binary[x] === 0) { binary[x] = 2; q.push(x); } if (binary[(height - 1) * width + x] === 0) { binary[(height - 1) * width + x] = 2; q.push((height - 1) * width + x); } }
+        for (let y = 0; y < height; y++) { if (binary[y * width] === 0) { binary[y * width] = 2; q.push(y * width); } if (binary[y * width + width - 1] === 0) { binary[y * width + width - 1] = 2; q.push(y * width + width - 1); } }
+        let head = 0;
+        while(head < q.length) {
+            const curr = q[head++];
+            const cx = curr % width, cy = Math.floor(curr / width);
+            for (let d of [-width, width, -1, 1]) {
+                const nIdx = curr + d;
+                if (nIdx >= 0 && nIdx < width * height && binary[nIdx] === 0) { binary[nIdx] = 2; q.push(nIdx); }
+            }
+        }
+        for(let i = 0; i < binary.length; i++) if(binary[i] === 0) binary[i] = 1;
+
+        const visited = new Uint8Array(width * height);
+        const minA = parseInt(document.getElementById('minArea').value);
+        const maxA = parseInt(document.getElementById('maxArea').value);
+        const avgA = parseInt(document.getElementById('avgArea').value);
+        const exclEdge = document.getElementById('excludeEdge').checked;
+
+        let totalEstCount = 0, totalValidArea = 0;
+        const vis = new Uint8ClampedArray(data);
+
+        if(updateCanvas) {
+            for (let i = 0; i < vis.length; i += 4) {
+                vis[i] *= 0.6; vis[i+1] *= 0.6; vis[i+2] *= 0.6;
+            }
+        }
+
+        for (let i = 0; i < binary.length; i++) {
+            if (binary[i] === 1 && visited[i] === 0) {
+                let area = 0, isEdge = false;
+                const blob = [i];
+                visited[i] = 1;
+                let qIdx = 0;
+                
+                while (qIdx < blob.length) {
+                    const curr = blob[qIdx++]; area++;
+                    const cx = curr % width, cy = Math.floor(curr / width);
+                    if (cx === 0 || cy === 0 || cx === width - 1 || cy === height - 1) isEdge = true;
+                    for (let d of [-width, width, -1, 1]) {
+                        const nIdx = curr + d;
+                        if (nIdx >= 0 && nIdx < width * height && binary[nIdx] === 1 && !visited[nIdx]) { visited[nIdx] = 1; blob.push(nIdx); }
+                    }
+                }
+
+                let color = [255, 50, 50]; 
+                if (exclEdge && isEdge) color = [46, 204, 113]; 
+                else if (area < minA) color = [169, 169, 169]; 
+                else if (area > maxA) { 
+                    totalEstCount += Math.round(area / avgA); 
+                    totalValidArea += area; color = [0, 100, 255];  
+                } else {
+                    totalEstCount += 1; totalValidArea += area;
+                }
+
+                if (updateCanvas) {
+                    blob.forEach(p => { 
+                        vis[p*4] = vis[p*4]*0.2 + color[0]*0.8; 
+                        vis[p*4+1] = vis[p*4+1]*0.2 + color[1]*0.8; 
+                        vis[p*4+2] = vis[p*4+2]*0.2 + color[2]*0.8; vis[p*4+3] = 255; 
+                    });
+                }
+            }
+        }
+
+        if (updateCanvas) canvas.getContext('2d').putImageData(new ImageData(vis, width, height), 0, 0);
+
+        const fraction = (totalValidArea / (width * height)) * 100;
+        return { count: totalEstCount, fractionNum: fraction, fractionText: fraction.toFixed(3) };
+    }
+
+    function updateDashboard(data) {
+        document.getElementById('totalCount').innerText = data.count;
+        document.getElementById('areaFraction').innerText = data.fractionText + '%';
+        
+        const suggestionBox = document.getElementById('suggestionBox');
+        const levelDisplay = document.getElementById('densityLevel');
+        const suggestText = document.getElementById('suggestionText');
+        const rangeBadge = document.getElementById('rangeBadge');
+        
+        suggestionBox.style.display = "block";
+        suggestionBox.className = "suggestion-box"; 
+
+        if (data.fractionNum < LOW_THRESHOLD) {
+            levelDisplay.innerText = "低密度 (Low)"; levelDisplay.style.color = "#c0392b"; suggestionBox.classList.add("suggest-low");
+            suggestText.innerText = "视野覆盖率较低。建议检查洗脱或捕获效率，适当提高上样浓度。";
+            rangeBadge.innerText = `[当前准则: 面积分数 < ${LOW_THRESHOLD}%]`;
+        } else if (data.fractionNum <= HIGH_THRESHOLD) {
+            levelDisplay.innerText = "中等密度 (Medium)"; levelDisplay.style.color = "#27ae60"; suggestionBox.classList.add("suggest-med");
+            suggestText.innerText = "视野覆盖率适中，颗粒分布最佳。建议保持当前实验处理条件。";
+            rangeBadge.innerText = `[当前准则: ${LOW_THRESHOLD}% ≤ 分数 ≤ ${HIGH_THRESHOLD}%]`;
+        } else {
+            levelDisplay.innerText = "高密度 (High)"; levelDisplay.style.color = "#d35400"; suggestionBox.classList.add("suggest-high");
+            suggestText.innerText = "覆盖面积过大，存在重叠风险。建议适当稀释样本，充分振荡打散团聚。";
+            rangeBadge.innerText = `[当前准则: 面积分数 > ${HIGH_THRESHOLD}%]`;
+        }
+    }
+
+    function downloadCSV() {
+        if (resultsData.length === 0) return;
+        let csv = "data:text/csv;charset=utf-8,\uFEFFFilename,TotalCount,AreaFraction(%),DensityLevel\n";
+        resultsData.forEach(r => {
+            let level = r.fractionNum < LOW_THRESHOLD ? "Low" : (r.fractionNum > HIGH_THRESHOLD ? "High" : "Medium");
+            csv += `${r.name},${r.count},${r.fractionText},${level}\n`;
+        });
+        const link = document.createElement("a"); link.href = encodeURI(csv);
+        link.download = "面积分数密度分析报告.csv"; link.click();
+    }
+</script>
+
+<!-- ========== 登录逻辑 & 无缝融合 ========== -->
+<script>
+    (function() {
+        const splashScreen = document.getElementById('loginSplashScreen');
+        const loginCardContainer = document.getElementById('loginCardContainer');
+        const fullscreenLayer = document.getElementById('fullscreenLoginLayer');
+
+        // 启动动画停留4秒后淡出，显示登录卡片
+        if (splashScreen && loginCardContainer) {
+            setTimeout(function() {
+                splashScreen.classList.add('fade-out');
+                setTimeout(function() {
+                    // 显示登录卡片区域
+                    loginCardContainer.classList.add('visible');
+                }, 900);
+            }, 4000);
+        }
+
+        // 登录表单验证
+        const loginForm = document.getElementById('loginFormLayer');
+        if (loginForm) {
+            loginForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const passwordInput = document.getElementById('loginPassword');
+                const password = passwordInput.value.trim();
+                if (password === 'SXL1224') {
+                    // 登录成功：移除全屏层，完全展现主程序
+                    if (fullscreenLayer && fullscreenLayer.parentNode) {
+                        fullscreenLayer.style.opacity = '0';
+                        setTimeout(() => {
+                            fullscreenLayer.remove();
+                        }, 400);
+                    }
+                } else {
+                    alert('密码错误，请重试。\n提示：密码为 SXL1224');
+                    passwordInput.value = '';
+                    passwordInput.focus();
+                }
+            });
+        }
+    })();
+</script>
+</body>
+</html>
